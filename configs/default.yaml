@@ -1,0 +1,172 @@
+# 影瞳 CineEye —— 默认配置
+# 所有路径都相对于项目根目录；命令行可用 --set a.b.c=value 覆盖任意一项。
+
+project:
+  name: "影瞳 CineEye"
+  seed: 42
+  log_level: INFO
+
+# ---------------------------------------------------------------- 数据
+data:
+  root: data
+  videos_dir: data/videos          # 组织方式：<videos_dir>/<电影名>/<视频文件>
+  frames_dir: data/frames          # 抽帧输出：<frames_dir>/<电影名>/<video_id>/000001.jpg
+  manifest: data/manifest.csv      # 帧级标注清单（含 split 列）
+  label_map: outputs/label_map.json
+  image_size: 224                  # 送入模型的分辨率
+  # 按视频分组划分，同一视频的帧绝不跨集合出现（防止数据泄漏，非常重要）
+  split:
+    train: 0.70
+    val: 0.15
+    test: 0.15
+    group_by: video_id
+  # 电影画面左右翻转会镜像字幕/文字，默认关闭
+  augmentation:
+    random_hflip: 0.0
+    color_jitter: 0.15
+    random_resized_crop_scale: [0.85, 1.0]
+
+# ---------------------------------------------------------------- 视频抽帧
+extract:
+  fps: 1.0                         # 每秒采样帧数（按时间戳采样，兼容可变帧率）
+  max_frames: 200                  # 单个视频最多保留的帧数
+  resize_long_edge: 360           # 落盘前长边缩放，0 = 保持原始分辨率
+  jpeg_quality: 90
+  skip_similar: true              # 跳过与上一帧几乎相同的画面（静态镜头/黑屏）
+  skip_similar_threshold: 0.985   # 灰度缩略图相关系数，高于此值视为重复
+  skip_black: true                # 跳过全黑/过暗帧（片头、转场）
+  black_mean_threshold: 12.0
+  video_extensions: [".mp4", ".mkv", ".avi", ".mov", ".webm", ".ts", ".m4v"]
+
+# ---------------------------------------------------------------- 模型
+model:
+  # resnet18 / resnet34 / resnet50 / mobilenet_v3_small / efficientnet_b0
+  backbone: resnet18
+  pretrained: true                # ImageNet 预训练权重，CPU 场景下是效果的关键
+  dropout: 0.2
+  # feature = 冻结 backbone 提特征 + 训练轻量分类头（默认，CPU 最快）
+  # finetune = 端到端微调（CPU 很慢，仅小数据/后期精调时用）
+  mode: feature
+  head_hidden: 0                  # >0 时在分类头插入一层隐藏层
+
+# ---------------------------------------------------------------- 训练
+train:
+  # 设备：auto 会自动探测 CUDA→MPS→XPU→CPU。有 NVIDIA GPU 时直接用 GPU，
+  # CLI 可用 --device cuda / --device cuda:1 覆盖（所有脚本通用）。
+  # RTX 50 系（Blackwell sm_120）需 CUDA 12.8 版 torch，见 docs/GPU_GUIDE.md。
+  device: auto                    # auto / cpu / cuda / cuda:0 / mps / xpu
+  epochs: 60
+  batch_size: 64                  # GPU 显存充足（如 12GB）可调到 128~256 提速
+  lr: 0.001
+  weight_decay: 0.0001
+  num_workers: 0                  # 容器 /dev/shm 很小时必须为 0；>=256MB 的物理机可设 2~4（代码会自动降级）
+  cpu_threads: 8                  # torch CPU 线程数（CPU 模式生效；18 逻辑核机器 8 通常最优）
+  patience: 10                    # 早停轮数
+  min_delta: 0.0005
+  balanced_sampler: true          # 类别不均衡时按类别重采样
+  label_smoothing: 0.05
+  amp: false                      # 混合精度，仅 CUDA 下生效；GPU 微调建议设 true 提速
+  amp_dtype: fp16                 # fp16（通用，配 GradScaler）/ bf16（Ampere+ 更稳，无需 scaler；RTX 50 系推荐）
+  grad_clip: 5.0
+  output_dir: outputs/checkpoints
+  history_file: outputs/reports/history.csv
+
+# ---------------------------------------------------------------- 特征缓存
+features:
+  cache_dir: outputs/features
+  batch_size: 64
+
+# ---------------------------------------------------------------- 传统基线（scikit-learn）
+classical:
+  enabled: true                   # 训练时同时跑基线，用于对比深度学习是否真的带来提升
+  estimator: logreg               # logreg / svm / rf
+  C: 1.0
+  hog: true
+  output: outputs/checkpoints/classical_baseline.joblib
+
+# ---------------------------------------------------------------- 推理
+inference:
+  num_frames: 16                  # 从一段视频均匀抽取的帧数
+  aggregation: mean_prob          # mean_prob / log_prob / majority
+  top_k: 5
+  unknown_threshold: 0.0          # >0 时启用拒识：最高概率低于阈值则输出「未知影片」
+  checkpoint: outputs/checkpoints/best.pt
+
+# ---------------------------------------------------------------- 扩展：统一识别（/identify）
+identify:
+  # 图库相似度返回门槛：低于此值的候选一律不返回（0=关闭门槛，全量返回）。
+  # 这是「画面够不够像」的硬规则，作用在余弦相似度上，不受分类器融合影响；
+  # 展示的 confidence 与排序也统一用这个值，做到所见即所得。
+  # 分类器融合分仅作为 evidence.fused_score 辅助证据保留。
+  min_similarity: 0.8                # 80%：训练原图相似度≈1.0 稳过，乱猜的低分被过滤
+
+# ---------------------------------------------------------------- 扩展：元数据库
+metadata:
+  db: outputs/cineeye.db           # SQLite 电影档案库（电影/别名/演员/图片索引）
+  aliases:
+    normalize_case: true           # 搜索时统一大小写
+    strip_punctuation: true        # 去除标点与空白
+    traditional_to_simplified: true  # 基础繁转简映射
+  providers:
+    local_table: outputs/metadata/movies.csv   # 本地表格模板（CSV/JSON）
+    tmdb:
+      api_key: ""                  # 留空则跳过；用环境变量 TMDB_API_KEY 也可
+      language: "zh-CN,en-US"      # 拉取多语言片名
+      region: CN
+      base_url: https://api.themoviedb.org/3
+      timeout: 15                  # 秒，单次 API 请求超时
+    douban:
+      enabled: true                # 豆瓣抓取（无 key，受反爬影响）
+      request_interval: 1.5        # 秒，礼貌抓取
+      timeout: 12
+
+# ---------------------------------------------------------------- 扩展：图库检索
+gallery:
+  dir: outputs/gallery             # embeddings.npy + meta.json + index.meta.json
+  checkpoint: outputs/checkpoints/best.pt   # 复用训练好的主干做特征编码
+  batch_size: 32
+  top_k: 5
+  # 图片类型：frame(影片帧) / poster(海报封面) / actor(演员照) / still(花絮剧照) / roadshow(路演)
+  default_kind: frame
+  # 多图聚合：mean / max / log_sum
+  aggregation: mean
+  use_faiss: false                 # 预留：向量规模上万时可开启（需另装 faiss）
+  min_similarity: 0.0              # 低于此相似度的候选不返回
+
+# ---------------------------------------------------------------- 扩展：演员识别
+actors:
+  enabled: true
+  face_detection: true             # 用 OpenCV Haar 检测人脸并裁剪
+  cascade: haarcascade_frontalface_default.xml
+  min_face_ratio: 0.03             # 人脸面积占整图最小比例，太小则跳过
+  reference_dir: outputs/actors    # 演员参考图：<演员名>/<图片>.jpg
+  top_k: 3
+  min_similarity: 0.0
+  # 预留专用人脸模型接口：insightface / none（当前 none = 复用 ResNet18 通用特征）
+  face_encoder: none
+
+  # ---------- 训练式演员识别（照片打标签 → 训练分类头）----------
+  encoder: imagenet                # imagenet（离线可用）/ movie（复用 best.pt 主干）/ auto
+  backbone: resnet18               # 演员特征主干；换主干必须重训
+  image_size: 224                  # 编码输入分辨率；改了这个也要重训
+  batch_size: 32                   # 编码批大小（GPU 可调大）
+  data_dir: data/actors            # 照片归档目录：<演员名>/<照片>；manifest.csv 也在这里
+  manifest: data/actors/manifest.csv
+  cache: outputs/features/actor_features.npz   # 特征缓存（签名失效会自动重算）
+  head_path: outputs/checkpoints/actor_head.pt # 训练产出的分类头
+  crop: detect                     # detect（最大人脸）/ center（中心裁剪）/ whole（整图）
+  face_pad: 0.2                    # 人脸外扩比例，保留发型与轮廓
+  fallback_whole_image: true       # 检测不到人脸时用中心裁剪兜底（生活照/全身照友好）
+  unknown_threshold: null          # null=训练时自动估计；也可写死 0.35 之类
+  unknown_dir: ""                  # 可选：放"非目标演员"照片，用于校准拒识阈值
+  fusion:                          # 分类头与参考库检索的融合权重
+    classifier: 0.7
+    gallery: 0.3
+  train:
+    val_ratio: 0.15                # 每位演员按比例切验证集
+    test_ratio: 0.15
+    epochs: 200                    # 分类头训练轮数（CPU 上通常 1~3 秒）
+    lr: 0.01
+    weight_decay: 0.0001
+    batch_size: 64                 # 特征训练的批大小（不是图片编码批大小）
+    patience: 40                   # 验证集准确率连续不提升则早停

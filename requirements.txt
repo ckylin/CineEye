@@ -1,0 +1,39 @@
+# 影瞳 CineEye 依赖（Python 3.13 验证通过）
+# 支持 CPU 与 NVIDIA GPU：
+#   - 无 GPU / 只做 CPU 推理：装 CPU 版 torch（下方命令）
+#   - 有 NVIDIA GPU：装 CUDA 版 wheel，RTX 50 系（sm_120）需 cu128 + torch>=2.7，否则报 no kernel image：
+#       pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#     详见 docs/GPU_GUIDE.md。代码默认 device=auto 自动选设备。
+#
+# 注意：/tmp 仅 10MB 的机器，安装前先把临时目录指到数据盘，否则会报 ENOSPC：
+#   export TMPDIR=$PWD/.tmp/pip-build PIP_CACHE_DIR=$PWD/.cache/pip
+#
+# 国内网络安装（实测：官方源约 30kB/s，阿里镜像 1~2MB/s）：
+#   pip install -i https://mirrors.aliyun.com/pypi/simple \
+#       numpy pandas Pillow PyYAML tqdm scikit-learn "opencv-python-headless>=4.9,<5" \
+#       matplotlib seaborn joblib pytest
+#   pip install --index-url https://mirrors.aliyun.com/pytorch-wheels/cpu/ \
+#               --extra-index-url https://mirrors.aliyun.com/pypi/simple \
+#               "torch==2.9.1+cpu" "torchvision==0.24.1+cpu"
+#
+# 境外网络：
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r requirements.txt
+#
+# 注：下方 torch 两行仅为依赖声明；若已按上面装好 CPU 版，pip 会跳过。
+# opencv 必须 <5：OpenCV 5 移除了 HOGDescriptor，会导致 sklearn 基线无法导入。
+
+torch>=2.6
+torchvision>=0.21
+
+numpy>=1.26
+pandas>=2.2
+Pillow>=10.0
+PyYAML>=6.0
+tqdm>=4.66
+scikit-learn>=1.6
+opencv-python-headless>=4.9,<5
+matplotlib>=3.8
+seaborn>=0.13
+joblib>=1.3
+pytest>=8.0

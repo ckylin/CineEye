@@ -1,0 +1,92 @@
+{
+  "version": "1.0",
+  "description": "影瞳素材标签契约：五层标签。React 表单与后端校验共用此文件，一处定义两端生效。新增 media_kind 等值只需改 options。",
+  "layers": [
+    {
+      "key": "basic",
+      "label": "基础属性",
+      "hint": "上传时自动填充，一般无需修改",
+      "fields": [
+        {"key": "asset_id", "label": "素材 ID", "type": "string", "readonly": true},
+        {"key": "asset_type", "label": "素材类型", "type": "enum", "options": ["video", "image"], "default": "image", "readonly": true},
+        {"key": "file_name", "label": "文件名", "type": "string", "readonly": true},
+        {"key": "sha256", "label": "内容指纹", "type": "string", "readonly": true},
+        {"key": "size", "label": "大小（字节）", "type": "number", "readonly": true},
+        {"key": "width", "label": "宽", "type": "number", "readonly": true},
+        {"key": "height", "label": "高", "type": "number", "readonly": true},
+        {"key": "duration", "label": "时长（秒）", "type": "number", "readonly": true},
+        {"key": "ext", "label": "扩展名", "type": "string", "readonly": true},
+        {"key": "source", "label": "来源", "type": "enum", "options": ["upload", "local", "tmdb", "douban", "manual"], "default": "upload"},
+        {"key": "source_url", "label": "来源链接", "type": "string", "optional_compliance": true},
+        {"key": "status", "label": "状态", "type": "enum", "options": ["active", "archived"], "default": "active"},
+        {"key": "uploaded_at", "label": "入库时间", "type": "string", "readonly": true}
+      ]
+    },
+    {
+      "key": "content",
+      "label": "内容分类",
+      "hint": "这是什么类型的画面，决定进哪个图库/训练流程",
+      "fields": [
+        {"key": "media_kind", "label": "内容类型", "type": "enum", "options": ["frame", "poster", "still", "behind_scenes", "roadshow", "actor_portrait", "actor_life", "screenshot", "trailer", "clip", "other"], "labels": {"frame": "视频帧", "poster": "海报", "still": "剧照", "behind_scenes": "花絮", "roadshow": "路演照", "actor_portrait": "演员写真", "actor_life": "演员生活照", "screenshot": "用户截图", "trailer": "预告片", "clip": "正片片段", "other": "其他"}, "default": "other"},
+        {"key": "lang", "label": "语言", "type": "string", "placeholder": "zh-CN / en-US"},
+        {"key": "region", "label": "地区", "type": "string", "placeholder": "CN / US"}
+      ]
+    },
+    {
+      "key": "semantic",
+      "label": "语义关联",
+      "hint": "关于哪部电影、哪些演员；可多选，合影可标多人",
+      "fields": [
+        {"key": "movie_ids", "label": "关联电影", "type": "multi_ref", "ref": "movies"},
+        {"key": "person_ids", "label": "出镜演员", "type": "multi_ref", "ref": "persons"},
+        {"key": "free_tags", "label": "自由标签", "type": "tags", "placeholder": "如 场景:雨夜、年代:2000s"}
+      ]
+    },
+    {
+      "key": "training",
+      "label": "训练用途",
+      "hint": "决定素材如何被模型使用；留空则自动推导",
+      "fields": [
+        {"key": "purpose", "label": "用途", "type": "enum", "options": ["train", "query", "gallery", "reference"], "labels": {"train": "训练", "query": "查询", "gallery": "图库检索", "reference": "演员参考"}, "default": "query"},
+        {"key": "split", "label": "数据集划分", "type": "enum", "options": ["", "train", "val", "test"], "labels": {"": "自动划分"}, "default": ""},
+        {"key": "label", "label": "分类标签", "type": "string", "placeholder": "留空则从关联电影/演员推导"},
+        {"key": "quality", "label": "画质", "type": "enum", "options": ["", "high", "medium", "low"], "default": ""},
+        {"key": "face_ok", "label": "检出人脸", "type": "bool", "default": false},
+        {"key": "face_boxes", "label": "人脸框", "type": "string", "readonly": true},
+        {"key": "used_in", "label": "用于训练", "type": "tags", "readonly": true}
+      ]
+    },
+    {
+      "key": "compliance",
+      "label": "合规采集",
+      "hint": "全部可选，仅作记录，不做法律判断",
+      "fields": [
+        {"key": "license", "label": "版权说明", "type": "string", "optional_compliance": true},
+        {"key": "consent", "label": "已获肖像授权", "type": "bool", "optional_compliance": true},
+        {"key": "notes", "label": "备注", "type": "string", "optional_compliance": true}
+      ]
+    }
+  ],
+  "media_kind_defaults": {
+    "frame": "train",
+    "poster": "gallery",
+    "still": "gallery",
+    "behind_scenes": "gallery",
+    "roadshow": "gallery",
+    "actor_portrait": "reference",
+    "actor_life": "reference",
+    "screenshot": "query",
+    "trailer": "train",
+    "clip": "train",
+    "other": "query"
+  },
+  "enums": {
+    "asset_type": ["video", "image"],
+    "source": ["upload", "local", "tmdb", "douban", "manual"],
+    "status": ["active", "archived"],
+    "media_kind": ["frame", "poster", "still", "behind_scenes", "roadshow", "actor_portrait", "actor_life", "screenshot", "trailer", "clip", "other"],
+    "purpose": ["train", "query", "gallery", "reference"],
+    "split": ["", "train", "val", "test"],
+    "quality": ["", "high", "medium", "low"]
+  }
+}

@@ -1,0 +1,46 @@
+# 数据与产物
+/data/videos/
+/data/frames/
+/data/manifest.csv
+/data/*.csv
+/outputs/
+*.pt
+*.pth
+*.joblib
+*.npy
+*.npz
+
+# 前端依赖（构建产物 static/ 需随项目走，不忽略）
+web/node_modules/
+web/.vite/
+
+# 权重缓存
+~/.cache/torch/
+.cache/torch/
+
+# 本地临时文件（wheel 下载、pip 构建目录等）
+/.tmp/
+
+# pip 下载缓存 / 回收站：体积巨大且非源码，绝不能进版本库
+/.cache/
+/.Trash-0/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.coverage
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
